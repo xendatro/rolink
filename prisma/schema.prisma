@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+generator erd {
+  provider = "prisma-erd-generator"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(cuid())
+  robloxId String @unique
+  discordHandle String?
+  xHandle String?
+  forHire Boolean @default(false)
+  skills UserSkill[]
+  games Game[]
+  vouchesGiven Vouch[] @relation("VouchGiver")
+  vouchesReceived Vouch[] @relation("VouchReceiver")
+  viewsGiven View[] @relation("ViewGiver")
+  viewsReceived View[] @relation("ViewReceiver")
+  // rest can be handled by 1 or 2 API calls 
+}
+
+model UserSkill {
+  id String @id @default(cuid())
+  userId String
+  skillId String
+  user User @relation(fields: [userId], references: [id])
+  skill Skill @relation(fields: [skillId], references: [id])
+}
+
+model Skill {
+  id String @id @default(cuid())
+  name String @unique
+  users UserSkill[] 
+
+  vouches Vouch[]
+}
+
+model Game {
+  id String @id @default(cuid())
+  userId String 
+  user User @relation(fields: [userId], references: [id])
+  experienceId String //NOT universe id
+  description String // free form text? how do i save this
+  // name, ccu, visits, favorites, etc. can be handled by api calls
+  // role can be handled by 1 or 2 api calls (if user owned game, return owner, if group owned game, see what role in group)
+}
+
+model Vouch {
+  id String @id @default(cuid())
+  fromUserId String 
+  toUserId String
+  fromUser User @relation("VouchGiver", fields: [fromUserId], references: [id])
+  toUser User @relation("VouchReceiver", fields: [toUserId], references: [id])
+  skillId String
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@unique([fromUserId, toUserId, skillId])
+}
+
+model View {
+  id String @id @default(cuid())
+  fromUserId String
+  toUserId String
+  fromUser User @relation("ViewGiver", fields: [fromUserId], references: [id])
+  toUser User @relation("ViewReceiver", fields: [toUserId], references: [id])
+  viewedAt DateTime @default(now())
+}

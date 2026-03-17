@@ -24,6 +24,7 @@ Developers log in via Roblox OAuth, build a profile, and add games they've contr
 - **User** = the person using the RoLink app (could be a developer or someone hiring)
 - **Developer** = a Roblox developer whose profile exists on RoLink
 - **Experience / Game** = a Roblox game identified by its Universe ID
+- **View** = a logged-in user viewing another user's profile
 - **Vouch** = one developer endorsing another developer's skill
 - **Notability Score** = a computed credibility score based on game contributions (not yet implemented — defer this)
 
@@ -92,69 +93,52 @@ When a developer adds a game to their profile by Universe ID:
 
 ## Database Schema (Prisma)
 
-Design with these models in mind. Adjust field names as needed but keep the relationships:
+Design philosophy: only store data in the database that can't be fetched from the Roblox API. User details like username, displayName, avatarUrl, isVerified, follower count, and game stats like name, visits, CCU, favorites, thumbnail are all fetched from the Roblox API at request time. This avoids stale data and saves database space.
 
 ```
 User
   - id (cuid)
   - robloxId (unique)
-  - username (unique)
-  - displayName
-  - avatarUrl
-  - isVerified (bool)
-  - bio (short tagline, optional)
-  - description (long text, optional)
   - discordHandle (optional)
-  - twitterHandle (optional)
-  - isForHire (bool, default false)
-  - hireInfo (text, optional — only shown if isForHire)
-  - createdAt
-  - updatedAt
+  - xHandle (optional)
+  - forHire (bool, default false)
   - skills       → UserSkill[]
   - games        → Game[]
   - vouchesGiven → Vouch[] (relation: VouchGiver)
   - vouchesReceived → Vouch[] (relation: VouchReceiver)
-  - profileViews → ProfileView[] (as the viewed user)
+  - viewsGiven   → View[] (relation: ViewGiver)
+  - viewsReceived → View[] (relation: ViewReceiver)
 
-Game
-  - id
-  - universeId (string)
-  - name
-  - thumbnailUrl
-  - visits
-  - favoritedCount
-  - peakCcu
-  - role (the developer's role/rank in this game)
-  - description (what they did — freeform)
-  - dateStarted (optional)
-  - dateEnded (optional)
-  - userId → User
-  - createdAt
-
-Skill (lookup table — seeded, not user-created)
-  - id
-  - name (e.g. "Scripting", "Building", "UI Design", "VFX", "Animation", "Music", "Game Design", "3D Modeling", "Marketing", "Project Management")
-
-UserSkill
+UserSkill (join table — links User to Skill)
   - id
   - userId → User
   - skillId → Skill
-  - yearsExperience (optional int)
-  - voucheCount (computed or cached)
+
+Skill (lookup table — seeded, not user-created)
+  - id
+  - name (unique, e.g. "Scripting", "Building", "UI Design", "VFX", "Animation", "Music", "Game Design", "3D Modeling", "Marketing", "Project Management")
+  - users → UserSkill[]
+  - vouches → Vouch[]
+
+Game
+  - id
+  - userId → User
+  - experienceId (string — NOT universe ID)
+  - description (what they did — freeform)
+  - Game name, visits, CCU, favorites, thumbnail, role are fetched from Roblox API
 
 Vouch
   - id
   - fromUserId → User (VouchGiver)
   - toUserId → User (VouchReceiver)
   - skillId → Skill
-  - createdAt
   - @@unique([fromUserId, toUserId, skillId]) — one vouch per skill per pair
 
-ProfileView
+View (logged-in users only)
   - id
-  - viewerId (nullable — allow logged-out views but don't record who)
-  - viewedId → User
-  - viewedAt
+  - fromUserId → User (ViewGiver)
+  - toUserId → User (ViewReceiver)
+  - viewedAt (DateTime, defaults to now)
 ```
 
 ---
@@ -212,13 +196,13 @@ ROBLOX_CLIENT_SECRET=    # From Roblox OAuth app registration
 
 ## Current Status
 
-Project is being scaffolded. Nothing is built yet. Start from scratch.
+Steps 1–4 are complete. Next up: Roblox OAuth.
 
 Suggested build order:
-1. Scaffold Next.js app with TypeScript, Tailwind, App Router
-2. Install and configure shadcn/ui
-3. Set up Prisma + connect to Neon database
-4. Write the schema and run initial migration
+1. ~~Scaffold Next.js app with TypeScript, Tailwind, App Router~~
+2. ~~Install and configure shadcn/ui~~
+3. ~~Set up Prisma + connect to Neon database~~
+4. ~~Write the schema and run initial migration~~
 5. Implement Roblox OAuth via NextAuth
 6. Build basic profile page (read-only, pulls from DB)
 7. Build profile edit flow (bio, description, skills, contact info)
